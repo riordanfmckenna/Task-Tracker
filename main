@@ -1,75 +1,118 @@
 import json
 import os
 from datetime import datetime
-path = os.getcwd()
 
-full_path = os.path.join(path, 'tasks.json')
+# Define the file path for tasks.json
+TASKS_FILE = 'tasks.json'
+full_path = os.path.join(os.getcwd(), TASKS_FILE)
 
-def get_task(id):
-    profile = next(
-        (item for item in profiles if item["id"] == id), None
-    )
-    if profile:
-        return profile["id"]
-    return None
+# --- Helper Functions for File I/O ---
 
-if os.path.isfile(full_path):
-    json_exists = True
-else:
-    json_exists = False
-    print("No tasks.json file found. A new one will be created.")
-    with open("tasks", 'w') as f:
-        json.dump({}, f)
+def read_tasks():
+    """Reads tasks from the tasks.json file.
+    Returns an empty list if the file doesn't exist or is empty."""
+    if not os.path.isfile(full_path):
+        return []  # Return empty list if file doesn't exist
+    try:
+        with open(full_path, 'r') as f:
+            content = f.read()
+            if not content:
+                return [] # Return empty list if file is empty
+            return json.loads(content)
+    except json.JSONDecodeError:
+        # Handle cases where the file is corrupted or not valid JSON
+        return []
+
+def write_tasks(tasks):
+    """Writes the list of tasks to the tasks.json file."""
+    with open(full_path, 'w') as f:
+        # Use indent=4 for a human-readable file
+        json.dump(tasks, f, indent=4)
+
+# --- Command Processing ---
+
 def process_command(command):
     """Parses and executes a command."""
-    parts = command.lower().split()
+    parts = command.strip().split()
     if not parts:
-        return "" # return nothing if imput is nothing
+        return ""  # Return nothing if input is empty
 
-    cmd = parts[0]
+    cmd = parts[0].lower()
     args = parts[1:]
-
-    with open('tasks', 'r') as f:
-        data = json.load(f)
-
-    if isinstance(data, dict):
-        count = len(data) # counts the number of objects
-    else:
-        print("Error: The top-level JSON is not an object.")
+    
+    # Read all tasks from the file at the start
+    tasks = read_tasks()
 
     if cmd == "add":
-        if args:
-            task = " ".join(args)
-            add_to_json = {
-    "description": {task},
-    "id": count + 1,
-    "status": "todo",
-    "createdAt": datetime.now(),
-    "updatedAt": datetime.now()
-}
-        print(f"Task added successfully (ID: {add_to_json['id']})")
-    elif cmd == "update":
-        if args:
-            search_id = " ".join(args)
-            get_task(search_id)
+        if not args:
+            return "Error: Please provide a task description to add."
+        
+        description = " ".join(args)
+        
+        # Determine the new ID by finding the max existing ID and adding 1
+        new_id = max([task.get('id', 0) for task in tasks] or [0]) + 1
+        
+        new_task = {
+            "id": new_id,
+            "description": description,
+            "status": "todo",
+            # Convert datetime to string for JSON compatibility
+            "createdAt": datetime.now().isoformat(),
+            "updatedAt": datetime.now().isoformat()
+        }
+        
+        tasks.append(new_task)
+        write_tasks(tasks) # Save the updated list back to the file
+        return f"✅ Task added successfully (ID: {new_id})"
 
+    elif cmd == "update":
+        if len(args) < 2:
+            return "Usage: update <id> <new description>"
+        
+        try:
+            task_id = int(args[0])
+        except ValueError:
+            return "Error: Invalid ID. Please provide a number."
+            
+        new_description = " ".join(args[1:])
+        
+        task_found = False
+        for task in tasks:
+            if task.get("id") == task_id:
+                task["description"] = new_description
+                task["updatedAt"] = datetime.now().isoformat()
+                task_found = True
+                break
+        
+        if task_found:
+            write_tasks(tasks) # Save the changes to the file
+            return f"🔄 Task {task_id} updated successfully."
+        else:
+            return f"❌ Error: Task with ID {task_id} not found."
+
+    return f"Unknown command: '{cmd}'. Available commands: add, update, exit."
+
+# --- Main Application Loop ---
 
 def main():
     """Main function to run the interactive CLI session."""
     print("Task Manager - Riordan McKenna")
+    print("Enter 'exit' to end the session.")
+    
+    # Initial check to notify user if a new file will be created
+    if not os.path.isfile(full_path):
+        print("No tasks.json file found. A new one will be created upon adding a task.")
+
     while True:
-        # 1. Prompt for input
         raw_input = input(">> ")
-
-        # 2. Check for exit condition
+        
         if raw_input.lower() == 'exit':
-            print("Ending session.")
+            print("Ending session. Goodbye! 👋")
             break
-
-        # 3. Process the command and print result
+            
         result = process_command(raw_input)
-        print(result)
+        if result: # Only print if there is a result
+            print(result)
 
 if __name__ == "__main__":
     main()
-
