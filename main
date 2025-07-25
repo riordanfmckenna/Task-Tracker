@@ -1,0 +1,75 @@
+import json
+import os
+from datetime import datetime
+path = os.getcwd()
+
+full_path = os.path.join(path, 'tasks.json')
+
+def get_task(id):
+    profile = next(
+        (item for item in profiles if item["id"] == id), None
+    )
+    if profile:
+        return profile["id"]
+    return None
+
+if os.path.isfile(full_path):
+    json_exists = True
+else:
+    json_exists = False
+    print("No tasks.json file found. A new one will be created.")
+    with open("tasks", 'w') as f:
+        json.dump({}, f)
+def process_command(command):
+    """Parses and executes a command."""
+    parts = command.lower().split()
+    if not parts:
+        return "" # return nothing if imput is nothing
+
+    cmd = parts[0]
+    args = parts[1:]
+
+    with open('tasks', 'r') as f:
+        data = json.load(f)
+
+    if isinstance(data, dict):
+        count = len(data) # counts the number of objects
+    else:
+        print("Error: The top-level JSON is not an object.")
+
+    if cmd == "add":
+        if args:
+            task = " ".join(args)
+            add_to_json = {
+    "description": {task},
+    "id": count + 1,
+    "status": "todo",
+    "createdAt": datetime.now(),
+    "updatedAt": datetime.now()
+}
+        print(f"Task added successfully (ID: {add_to_json['id']})")
+    elif cmd == "update":
+        if args:
+            search_id = " ".join(args)
+            get_task(search_id)
+
+
+def main():
+    """Main function to run the interactive CLI session."""
+    print("Task Manager - Riordan McKenna")
+    while True:
+        # 1. Prompt for input
+        raw_input = input(">> ")
+
+        # 2. Check for exit condition
+        if raw_input.lower() == 'exit':
+            print("Ending session.")
+            break
+
+        # 3. Process the command and print result
+        result = process_command(raw_input)
+        print(result)
+
+if __name__ == "__main__":
+    main()
+
